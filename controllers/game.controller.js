@@ -9,8 +9,8 @@ export const getGames = async (req, res) => {
   try {
 
     const games = await Game.find()
-      .populate("console")
-      .populate("user");
+      .populate("console", "nombre")
+      .populate("user", "nombre");
 
     res.json(games);
 
@@ -29,8 +29,8 @@ export const getGameById = async (req, res) => {
     }
 
     const game = await Game.findById(id)
-      .populate("console")
-      .populate("user");
+      .populate("console", "nombre")
+      .populate("user", "nombre");
 
     if (!game) {
       return res.status(404).json({ error: "Juego no encontrado" });
@@ -83,6 +83,16 @@ export const deleteGame = async (req, res) => {
       return res.status(400).json({ error: "ID inválido" });
     }
 
+    const game = await Game.findById(id);
+
+    if (!game) {
+      return res.status(404).json({ error: "Juego no encontrado" });
+    }
+
+    if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+
     const deletedGame = await Game.findByIdAndUpdate(
       id,
       { isDeleted: true },
@@ -91,10 +101,6 @@ export const deleteGame = async (req, res) => {
         runValidators: true
       }
     );
-
-    if (!deletedGame) {
-      return res.status(404).json({ error: "Juego no encontrado" });
-    }
 
     res.json({ message: "Juego eliminado correctamente (soft delete)" });
 
@@ -112,9 +118,19 @@ export const patchGame = async (req, res) => {
       return res.status(400).json({ error: "ID inválido" });
     }
 
+    const game = await Game.findById(id);
+
+    if (!game) {
+      return res.status(404).json({ error: "Juego no encontrado" });
+    }
+
+    if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+
     const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
 
-    const game = await Game.findByIdAndUpdate(
+    const updatedGame = await Game.findByIdAndUpdate(
       id,
       sanitizedBody,
       {
@@ -124,11 +140,7 @@ export const patchGame = async (req, res) => {
       }
     );
 
-    if (!game) {
-      return res.status(404).json({ error: "Juego no encontrado" });
-    }
-
-    res.json(game);
+    res.json(updatedGame);
 
   } catch (err) {
     res.status(400).json({ error: err.message });
