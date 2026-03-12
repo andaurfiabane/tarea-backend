@@ -5,6 +5,7 @@ import gamesRoutes from "./routes/games.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import connectDB from "./config/database.js";
 import dotenv from "dotenv";
+import { errorHandler } from "./middlewares/errorHandler.js";
 
 
 dotenv.config();
@@ -25,6 +26,14 @@ app.use("/api/consoles", consolesRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/games", gamesRoutes);
 app.use("/api/auth", authRoutes);
+
+app.use((req, res, next) => {
+  const error = new Error("Ruta no encontrada");
+  error.status = 404;
+  next(error);
+});
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);

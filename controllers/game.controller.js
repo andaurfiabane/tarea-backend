@@ -2,147 +2,148 @@ import mongoose from "mongoose";
 import Game from "../models/Game.js";
 import Console from "../models/Console.js";
 import { sanitizeUpdate } from "../services/sanitizeUpdate.js";
+import { asyncHandler } from "../middlewares/asyncHandler.js";
 
 const forbiddenFields = ["_id", "isDeleted", "createdAt", "updatedAt", "user"];
 
-export const getGames = async (req, res) => {
-  try {
+export const getGames = asyncHandler(async (req, res) => {
 
-    const games = await Game.find()
-      .populate("console", "nombre")
-      .populate("user", "nombre");
+  const games = await Game.find()
+    .populate("console", "nombre")
+    .populate("user", "nombre");
 
-    res.json(games);
+  res.json(games);
 
-  } catch (err) {
-    res.status(500).json({ error: "Error al obtener los juegos" });
+});
+
+export const getGameById = asyncHandler(async (req, res) => {
+
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("ID inválido");
+    error.status = 400;
+    throw error;
   }
-};
 
-export const getGameById = async (req, res) => {
-  try {
+  const game = await Game.findById(id)
+    .populate("console", "nombre")
+    .populate("user", "nombre");
 
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "ID inválido" });
-    }
-
-    const game = await Game.findById(id)
-      .populate("console", "nombre")
-      .populate("user", "nombre");
-
-    if (!game) {
-      return res.status(404).json({ error: "Juego no encontrado" });
-    }
-
-    res.json(game);
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (!game) {
+    const error = new Error("Juego no encontrado");
+    error.status = 404;
+    throw error;
   }
-};
 
-export const createGame = async (req, res) => {
-  try {
+  res.json(game);
 
-    const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
+});
 
-    const { console } = sanitizedBody;
+export const createGame = asyncHandler(async (req, res) => {
 
-    if (!mongoose.Types.ObjectId.isValid(console)) {
-      return res.status(400).json({ error: "Console inválida" });
-    }
+  const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
 
-    const consoleExists = await Console.findById(console);
+  const { console } = sanitizedBody;
 
-    if (!consoleExists) {
-      return res.status(400).json({ error: "La consola no existe" });
-    }
-
-    const newGame = new Game({
-      ...sanitizedBody,
-      user: req.user.id
-    });
-
-    const savedGame = await newGame.save();
-
-    res.status(201).json(savedGame);
-
-  } catch (err) {
-    res.status(400).json({ error: "Error al crear el juego" });
+  if (!mongoose.Types.ObjectId.isValid(console)) {
+    const error = new Error("Console inválida");
+    error.status = 400;
+    throw error;
   }
-};
 
-export const deleteGame = async (req, res) => {
-  try {
+  const consoleExists = await Console.findById(console);
 
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "ID inválido" });
-    }
-
-    const game = await Game.findById(id);
-
-    if (!game) {
-      return res.status(404).json({ error: "Juego no encontrado" });
-    }
-
-    if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ error: "No autorizado" });
-    }
-
-    const deletedGame = await Game.findByIdAndUpdate(
-      id,
-      { isDeleted: true },
-      {
-        returnDocument: "after",
-        runValidators: true
-      }
-    );
-
-    res.json({ message: "Juego eliminado correctamente (soft delete)" });
-
-  } catch (err) {
-    res.status(500).json({ error: "Error al eliminar el juego" });
+  if (!consoleExists) {
+    const error = new Error("La consola no existe");
+    error.status = 400;
+    throw error;
   }
-};
 
-export const patchGame = async (req, res) => {
-  try {
+  const newGame = new Game({
+    ...sanitizedBody,
+    user: req.user.id
+  });
 
-    const { id } = req.params;
+  const savedGame = await newGame.save();
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "ID inválido" });
-    }
+  res.status(201).json(savedGame);
 
-    const game = await Game.findById(id);
+});
 
-    if (!game) {
-      return res.status(404).json({ error: "Juego no encontrado" });
-    }
+export const deleteGame = asyncHandler(async (req, res) => {
 
-    if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ error: "No autorizado" });
-    }
+  const { id } = req.params;
 
-    const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
-
-    const updatedGame = await Game.findByIdAndUpdate(
-      id,
-      sanitizedBody,
-      {
-        returnDocument: "after",
-        runValidators: true,
-        context: "query"
-      }
-    );
-
-    res.json(updatedGame);
-
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("ID inválido");
+    error.status = 400;
+    throw error;
   }
-};
+
+  const game = await Game.findById(id);
+
+  if (!game) {
+    const error = new Error("Juego no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
+    const error = new Error("No autorizado");
+    error.status = 403;
+    throw error;
+  }
+
+  await Game.findByIdAndUpdate(
+    id,
+    { isDeleted: true },
+    {
+      returnDocument: "after",
+      runValidators: true
+    }
+  );
+
+  res.json({ message: "Juego eliminado correctamente (soft delete)" });
+
+});
+
+export const patchGame = asyncHandler(async (req, res) => {
+
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("ID inválido");
+    error.status = 400;
+    throw error;
+  }
+
+  const game = await Game.findById(id);
+
+  if (!game) {
+    const error = new Error("Juego no encontrado");
+    error.status = 404;
+    throw error;
+  }
+
+  if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
+    const error = new Error("No autorizado");
+    error.status = 403;
+    throw error;
+  }
+
+  const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
+
+  const updatedGame = await Game.findByIdAndUpdate(
+    id,
+    sanitizedBody,
+    {
+      returnDocument: "after",
+      runValidators: true,
+      context: "query"
+    }
+  );
+
+  res.json(updatedGame);
+
+});

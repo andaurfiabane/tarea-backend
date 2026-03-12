@@ -3,119 +3,118 @@ import bcrypt from "bcrypt";
 import User from "../models/User.js";
 import { sanitizeUpdate } from "../services/sanitizeUpdate.js";
 import jwt from "jsonwebtoken";
+import { asyncHandler } from "../middlewares/asyncHandler.js";
 
 const forbiddenFields = ["_id", "createdAt", "updatedAt", "isDeleted"];
 
 const SALT_ROUNDS = 10;
 
-export const getUsers = async (req, res) => {
-  try {
+export const getUsers = asyncHandler(async (req, res) => {
 
-    const users = await User.find().select("-password");
-    res.json(users);
+  const users = await User.find().select("-password");
+  res.json(users);
 
-  } catch (err) {
-    res.status(500).json({ error: "Error al obtener los usuarios" });
+});
+
+export const getUserById = asyncHandler(async (req, res) => {
+
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    const error = new Error("ID inválido");
+    error.status = 400;
+    throw error;
   }
-};
 
-export const getUserById = async (req, res) => {
-  try {
+  const user = await User.findById(id).select("-password");
 
-    const { id } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "ID inválido" });
-    }
-
-    const user = await User.findById(id).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
-
-    res.json(user);
-
-  } catch (err) {
-    res.status(500).json({ error: "Error al obtener el usuario" });
+  if (!user) {
+    const error = new Error("Usuario no encontrado");
+    error.status = 404;
+    throw error;
   }
-};
 
-export const createUser = async (req, res) => {
-  try {
+  res.json(user);
 
-    const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
+});
 
-    const { nombre, email, password, role } = sanitizedBody;
+export const createUser = asyncHandler(async (req, res) => {
 
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ error: "nombre, email y password son obligatorios" });
-    }
+  const sanitizedBody = sanitizeUpdate(req.body, forbiddenFields);
 
-    const existingUser = await User.findOne({ email });
+  const { nombre, email, password, role } = sanitizedBody;
 
-    if (existingUser) {
-      return res.status(409).json({ error: "El email ya está registrado" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-    const newUser = new User({
-      nombre,
-      email,
-      password: hashedPassword,
-      role: role || "user"
-    });
-
-    const savedUser = await newUser.save();
-
-    const userResponse = savedUser.toObject();
-    delete userResponse.password;
-
-    res.status(201).json(userResponse);
-
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  if (!nombre || !email || !password) {
+    const error = new Error("nombre, email y password son obligatorios");
+    error.status = 400;
+    throw error;
   }
-};
 
-export const loginUser = async (req, res) => {
-  try {
+  const existingUser = await User.findOne({ email });
 
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email })
-      .select("+password")
-      .setOptions({ bypassDeleted: true });
-
-    if (!user) {
-      return res.status(401).json({ error: "Credenciales inválidas" });
-    }
-
-    if (user.isDeleted) {
-      return res.status(403).json({ error: "Usuario deshabilitado" });
-    }
-
-    const passwordValid = await bcrypt.compare(password, user.password);
-
-    if (!passwordValid) {
-      return res.status(401).json({ error: "Credenciales inválidas" });
-    }
-
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-        nombre: user.nombre,
-        email: user.email
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    res.json({ token });
-
-  } catch (err) {
-    res.status(500).json({ error: "Error al iniciar sesión" });
+  if (existingUser) {
+    const error = new Error("El email ya está registrado");
+    error.status = 409;
+    throw error;
   }
-};
+
+  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+
+  const newUser = new User({
+    nombre,
+    email,
+    password: hashedPassword,
+    role: role || "user"
+  });
+
+  const savedUser = await newUser.save();
+
+  const userResponse = savedUser.toObject();
+  delete userResponse.password;
+
+  res.status(201).json(userResponse);
+
+});
+
+export const loginUser = asyncHandler(async (req, res) => {
+
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ email })
+    .select("+password")
+    .setOptions({ bypassDeleted: true });
+
+  if (!user) {
+    const error = new Error("Credenciales inválidas");
+    error.status = 401;
+    throw error;
+  }
+
+  if (user.isDeleted) {
+    const error = new Error("Usuario deshabilitado");
+    error.status = 403;
+    throw error;
+  }
+
+  const passwordValid = await bcrypt.compare(password, user.password);
+
+  if (!passwordValid) {
+    const error = new Error("Credenciales inválidas");
+    error.status = 401;
+    throw error;
+  }
+
+  const token = jwt.sign(
+    {
+      id: user._id,
+      role: user.role,
+      nombre: user.nombre,
+      email: user.email
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  res.json({ token });
+
+});
