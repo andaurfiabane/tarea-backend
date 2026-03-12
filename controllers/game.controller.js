@@ -47,7 +47,7 @@ export const createGame = asyncHandler(async (req, res) => {
   const { console } = sanitizedBody;
 
   if (!mongoose.Types.ObjectId.isValid(console)) {
-    const error = new Error("Console inválida");
+    const error = new Error("Consola inválida");
     error.status = 400;
     throw error;
   }
@@ -90,7 +90,7 @@ export const deleteGame = asyncHandler(async (req, res) => {
   }
 
   if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
-    const error = new Error("No autorizado");
+    const error = new Error("No cuentas con los permisos necesarios para realizar esta acción");
     error.status = 403;
     throw error;
   }
@@ -127,7 +127,7 @@ export const patchGame = asyncHandler(async (req, res) => {
   }
 
   if (game.user.toString() !== req.user.id && req.user.role !== "admin") {
-    const error = new Error("No autorizado");
+    const error = new Error("No cuentas con los permisos necesarios para realizar esta acción");
     error.status = 403;
     throw error;
   }

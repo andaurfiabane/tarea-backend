@@ -5,13 +5,17 @@ export const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
-    return res.status(401).json({ error: "Token requerido" });
+    const error = new Error("Token requerido");
+    error.status = 401;
+    return next(error);
   }
 
   const token = authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ error: "Token inválido" });
+    const error = new Error("Token inválido");
+    error.status = 401;
+    return next(error);
   }
 
   try {
@@ -23,7 +27,11 @@ export const authenticate = (req, res, next) => {
     next();
 
   } catch (err) {
-    return res.status(401).json({ error: "Token inválido" });
+
+    const error = new Error("Token inválido");
+    error.status = 401;
+    next(error);
+
   }
 
 };
@@ -31,7 +39,9 @@ export const authenticate = (req, res, next) => {
 export const requireAdmin = (req, res, next) => {
 
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ error: "No tienes los permisos necesarios para realizar esta acción" });
+    const error = new Error("No tienes los permisos necesarios para realizar esta acción");
+    error.status = 403;
+    return next(error);
   }
 
   next();
