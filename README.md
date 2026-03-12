@@ -31,8 +31,11 @@ npm install
 ## 4. Crear un archivo .env en la raíz del proyecto con el siguiente contenido
 
 PORT=3000
+
 MONGODB_URI=tu_url_mongodb
+
 JWT_SECRET=tu_secreto_para_jwt
+
 
 ---
 
